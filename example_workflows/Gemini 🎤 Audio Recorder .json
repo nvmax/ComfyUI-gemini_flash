@@ -97,7 +97,7 @@
       "widgets_values": [
         "Answered the question please",
         "audio",
-        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash",
         "analysis",
         false,
         false,

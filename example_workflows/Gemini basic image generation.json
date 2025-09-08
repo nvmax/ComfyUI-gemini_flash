@@ -89,7 +89,7 @@
       "widgets_values": [
         "your job is to change the background to shore ",
         "image",
-        "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.0-flash",
         "generate_images",
         false,
         false,

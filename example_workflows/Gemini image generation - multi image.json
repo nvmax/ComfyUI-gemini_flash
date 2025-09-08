@@ -132,7 +132,7 @@
       "widgets_values": [
         "please change image_1 background to image_2",
         "image",
-        "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.0-flash",
         "generate_images",
         false,
         false,

@@ -1,11 +1,7 @@
-# ComfyUI-Gemini_Flash_2.0_Exp
+# ComfyUI-Gemini_Flash_2.0
 
-## Support My Work
-If you find this project helpful, consider buying me a coffee:
 
-[![Buy Me A Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=shmuelronen&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/shmuelronen)
-
-A ComfyUI custom node that integrates Google's Gemini Flash 2.0 Experimental model, enabling multimodal analysis of text, images, video frames, and audio directly within ComfyUI workflows. Now with image generation capabilities!
+A ComfyUI custom node that integrates Google's Gemini Flash 2.0 model, enabling multimodal analysis of text, images, video frames, and audio directly within ComfyUI workflows.
 
 ![image](https://github.com/user-attachments/assets/ad7cdf57-3d42-4d61-bb23-45b1ce228bca)
 ![image](https://github.com/user-attachments/assets/57db07a4-01b4-4578-ae18-7969ebd8d673)
@@ -19,7 +15,7 @@ Audio option
   - Image analysis
   - Video frame analysis
   - Audio analysis
-- **NEW! Image Generation** using gemini-2.0-flash-exp-image-generation model
+- Image generation mode (requires compatible model)
 - Chat mode with conversation history
 - Voice chat with smart Audio recorder node
 - Structured output option
@@ -36,7 +32,7 @@ or
 Clone this repository into your ComfyUI custom_nodes folder:
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/ShmuelRonen/ComfyUI-Gemini_Flash_2.0_Exp.git
+git clone https://github.com/ShmuelRonen/ComfyUI-Gemini_Flash_2.0.git
 ```
 
 Install required dependencies:
@@ -129,12 +125,12 @@ Load Audio Node -> Gemini Flash Node [input_type: "audio", operation_mode: "anal
 
 ### Image Generation:
 ```
-Text Input Node -> Gemini Flash Node [model_version: "gemini-2.0-flash-exp-image-generation", operation_mode: "generate_images"]
+Text Input Node -> Gemini Flash Node [model_version: "gemini-2.0-flash", operation_mode: "generate_images"]
 ```
 
 ### Image Generation with Reference:
 ```
-Load Image Node -> Gemini Flash Node [model_version: "gemini-2.0-flash-exp-image-generation", operation_mode: "generate_images"]
+Load Image Node -> Gemini Flash Node [model_version: "gemini-2.0-flash", operation_mode: "generate_images"]
 ```
 
 ## Chat Mode
@@ -174,11 +170,11 @@ The new image generation capabilities allow you to:
 - Generate multiple images with batch_count
 
 ### Image Generation Tips:
-- For best results, use the "gemini-2.0-flash-exp-image-generation" model
 - Use "generate_images" operation mode
 - Provide clear, detailed prompts for better results
 - Connect reference images for style guidance
 - Use seed parameter for reproducible results
+- Note: Image generation capabilities depend on the model version used
 
 ## Troubleshooting Cross-Platform Issues
 
@@ -279,4 +275,4 @@ MIT License
 
 ---
 
-**Note**: This node is experimental and based on Gemini 2.0 Flash Experimental model. Features and capabilities may change as the model evolves.
+**Note**: This node integrates with Google's Gemini 2.0 Flash model. Features and capabilities may change as the model evolves.
