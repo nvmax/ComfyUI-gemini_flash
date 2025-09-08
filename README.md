@@ -32,7 +32,7 @@ or
 Clone this repository into your ComfyUI custom_nodes folder:
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/ShmuelRonen/ComfyUI-Gemini_Flash_2.0.git
+git clone https://github.com/nvmax/ComfyUI-gemini_flash.git
 ```
 
 Install required dependencies:
