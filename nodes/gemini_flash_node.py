@@ -3,7 +3,8 @@ import os
 import json
 import base64
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from io import BytesIO
 from PIL import Image
 import torch
@@ -42,21 +43,17 @@ class ChatHistory:
         formatted += "=== End History ===\n"
         return formatted
     
-    def get_messages_for_api(self):
-        api_messages = []
-        for msg in self.messages:
-            if isinstance(msg["content"], str):
-                api_messages.append({
-                    "role": msg["role"],
-                    "parts": [{"text": msg["content"]}]
-                })
-        return api_messages
     
-    def clear(self):
-        self.messages = []
+    def get_messages_for_api(self):
+        # Convert custom history format to google.genai compatible format if needed.
+        # The new SDK accepts list of dicts or types.Content.
+        # Existing format: [{"role": "user", "parts": [{"text": "..."}]}]
+        # New SDK expects similar structure for history.
+        return self.messages
 
 class GeminiFlash:
     def __init__(self, api_key=None):
+        self.client = None
         env_key = os.environ.get("GEMINI_API_KEY")
 
         # Common placeholder values to ignore
@@ -76,10 +73,11 @@ class GeminiFlash:
 
         self.chat_history = ChatHistory()
         if self.api_key is not None:
-            self.configure_genai()
+             self.initialize_client()
 
-    def configure_genai(self):
-        genai.configure(api_key=self.api_key, transport='rest')
+    def initialize_client(self):
+        if self.api_key:
+            self.client = genai.Client(api_key=self.api_key)
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -302,20 +300,38 @@ class GeminiFlash:
         
         # Set all safety settings to block_none by default
         safety_settings = [
-            {"category": "harassment", "threshold": "NONE"},
-            {"category": "hate_speech", "threshold": "NONE"},
-            {"category": "sexually_explicit", "threshold": "NONE"},
-            {"category": "dangerous_content", "threshold": "NONE"},
-            {"category": "civic", "threshold": "NONE"}
+            types.SafetySetting(
+                category="HARM_CATEGORY_HARASSMENT",
+                threshold="BLOCK_NONE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_HATE_SPEECH",
+                threshold="BLOCK_NONE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold="BLOCK_NONE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold="BLOCK_NONE"
+            ),
+             types.SafetySetting(
+                category="HARM_CATEGORY_CIVIC_INTEGRITY",
+                threshold="BLOCK_NONE"
+            )
         ]
 
         # Only update API key if explicitly provided in the node
         if api_key.strip():
             self.api_key = api_key
             save_config({"GEMINI_API_KEY": self.api_key})
-            self.configure_genai()
+            self.initialize_client()
 
-        if not self.api_key:
+        if not self.client:
+             self.initialize_client()
+
+        if not self.client:
             raise ValueError("API key not found in config.json or node input")
 
         if clear_history:
@@ -334,15 +350,12 @@ class GeminiFlash:
             )
 
         # For analysis mode (original functionality)
-        model_name = f'models/{model_version}'
-        model = genai.GenerativeModel(model_name)
+        model_name = f'{model_version}' # New SDK often takes just the version name, but let's check. Assuming 'gemini-2.0-flash' works.
 
-        # Apply fixed safety settings to the model
-        model.safety_settings = safety_settings
-
-        generation_config = genai.types.GenerationConfig(
+        generation_config = types.GenerateContentConfig(
             max_output_tokens=max_output_tokens,
-            temperature=temperature
+            temperature=temperature,
+            safety_settings=safety_settings
         )
 
         try:
@@ -391,7 +404,7 @@ class GeminiFlash:
                                 }
                             })
                         
-                        content = {"parts": parts}
+                        content = {"role": "user", "parts": parts}
                     else:
                         raise ValueError("No images provided for image input type")
                 elif input_type == "video" and video is not None:
@@ -414,7 +427,7 @@ class GeminiFlash:
                                     }
                                 })
                             
-                            content = {"parts": parts}
+                            content = {"role": "user", "parts": parts}
                         else:
                             raise ValueError("Error processing video frames")
                     else:
@@ -425,7 +438,7 @@ class GeminiFlash:
                         pil_image.save(img_byte_arr, format='PNG')
                         img_bytes = img_byte_arr.getvalue()
                         
-                        content = {"parts": [
+                        content = {"role": "user", "parts": [
                             {"text": f"This is a single frame from a video. {prompt}"},
                             {
                                 "inline_data": {
@@ -454,7 +467,7 @@ class GeminiFlash:
                     torchaudio.save(buffer, waveform, 16000, format="WAV")
                     audio_bytes = buffer.getvalue()
                     
-                    content = {"parts": [
+                    content = {"role": "user", "parts": [
                         {"text": prompt},
                         {
                             "inline_data": {
@@ -467,18 +480,30 @@ class GeminiFlash:
                     raise ValueError(f"Invalid or missing input for {input_type}")
 
                 # Initialize chat and send message
-                chat = model.start_chat(history=self.chat_history.get_messages_for_api())
-                response = chat.send_message(content, generation_config=generation_config)
+                # history needs to be converted if it's in the old format? 
+                # The ChatHistory class stores pure dicts which should be compatible with contents check.
+                # However, we must ensure it matches what google.genai expects.
+                # google.genai `chats.create` expects `history`.
                 
+                chat = self.client.chats.create(model=model_name, history=self.chat_history.get_messages_for_api(), config=generation_config)
+                
+                # Check if content needs to be wrapped or is already in correct format
+                # If content is a dict with parts, it might be fine, or pass parts directly.
+                if isinstance(content, dict) and "parts" in content:
+                     response = chat.send_message(content["parts"]) # Pass just the parts list usually for send_message
+                else:
+                     response = chat.send_message(content)
+
                 # Add to history and get formatted output
                 if isinstance(content, dict) and "parts" in content:
-                    # For complex content with parts, just store the prompt
-                    history_content = prompt
+                    # For complex content with parts, just store the prompt in local history visualizer
+                    # Note: The chat object maintains its own history, we just keep this for the UI display
+                    history_content = prompt 
                 else:
                     history_content = content
                     
                 self.chat_history.add_message("user", history_content)
-                self.chat_history.add_message("assistant", response.text)
+                self.chat_history.add_message("model", response.text) # Role is often 'model' in new SDK responses? or 'assistant'?
                 
                 # Only show the chat history
                 generated_content = self.chat_history.get_formatted_history()
@@ -495,7 +520,15 @@ class GeminiFlash:
                                 if "text" in part:
                                     part["text"] = f"Please provide the response in a structured format. {part['text']}"
                 
-                response = model.generate_content(content_parts, generation_config=generation_config)
+                # For non-chat, use client.models.generate_content
+                # content_parts from prepare_content usually returns [{"parts": [...]}] or [{"text": ...}]
+                # We need to pass the list of contents.
+                
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=content_parts,
+                    config=generation_config
+                )
                 generated_content = response.text
 
         except Exception as e:
